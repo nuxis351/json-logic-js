@@ -129,6 +129,58 @@ QUnit.module('basic', () => {
     );
   });
 
+  QUnit.module("jsonLogic Callback Tests", function() {
+
+    QUnit.test("callback invocation test", function(assert) {
+      const logic = {
+        "and": [
+          {"===": [1, 1]},
+          {"===": [2, 2]}
+        ]
+      };
+      const data = {};
+      let callbackCalled = false;
+
+      jsonLogic.apply(logic, data, function(op, values, l, d) {
+        callbackCalled = true;
+      });
+
+      assert.ok(callbackCalled, "Callback function was called");
+    });
+
+    QUnit.test("callback values test", function(assert) {
+      const logic = {
+        "===": ["a", "a"]
+      };
+      const data = {};
+
+      jsonLogic.apply(logic, data, function(op, values, l, d) {
+        assert.equal(op, "===", "Operation is correct");
+        assert.deepEqual(values, ["a", "a"], "Values are correct");
+        assert.deepEqual(l, logic, "Logic structure is correct");
+        assert.deepEqual(d, data, "Data is correct");
+      });
+    });
+
+    QUnit.test("recursive callback test", function(assert) {
+      const logic = {
+        "and": [
+          {"===": [1, 1]},
+          {"===": [2, 2]}
+        ]
+      };
+      const data = {};
+      let callbackCount = 0;
+
+      jsonLogic.apply(logic, data, function(op, values, l, d) {
+        callbackCount++;
+      });
+
+      assert.equal(callbackCount, 3, "Callback function was called 3 times (and + 2 === checks)");
+    });
+
+  });
+
 
   QUnit.test( "logging", function( assert ) {
     var last_console;

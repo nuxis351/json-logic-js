@@ -202,11 +202,11 @@ http://ricostacruz.com/cheatsheets/umdjs.html
     return logic[jsonLogic.get_operator(logic)];
   };
 
-  jsonLogic.apply = function(logic, data) {
+  jsonLogic.apply = function(logic, data, callback) {
     // Does this array contain logic? Only one way to find out.
     if (Array.isArray(logic)) {
       return logic.map(function(l) {
-        return jsonLogic.apply(l, data);
+        return jsonLogic.apply(l, data, callback);
       });
     }
     // You've recursed to a primitive, stop!
@@ -221,6 +221,10 @@ http://ricostacruz.com/cheatsheets/umdjs.html
     var scopedLogic;
     var scopedData;
     var initial;
+
+    if (callback && typeof callback === "function") {
+      callback(op, values, logic, data);
+    }
 
     // easy syntax for unary operators, like {"var" : "x"} instead of strict {"var" : ["x"]}
     if ( ! Array.isArray(values)) {
@@ -243,17 +247,17 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       given 0 parameters, return NULL (not great practice, but there was no Else)
       */
       for (i = 0; i < values.length - 1; i += 2) {
-        if ( jsonLogic.truthy( jsonLogic.apply(values[i], data) ) ) {
-          return jsonLogic.apply(values[i+1], data);
+        if ( jsonLogic.truthy( jsonLogic.apply(values[i], data, callback) ) ) {
+          return jsonLogic.apply(values[i+1], data, callback);
         }
       }
       if (values.length === i+1) {
-        return jsonLogic.apply(values[i], data);
+        return jsonLogic.apply(values[i], data, callback);
       }
       return null;
     } else if (op === "and") { // Return first falsy, or last
       for (i=0; i < values.length; i+=1) {
-        current = jsonLogic.apply(values[i], data);
+        current = jsonLogic.apply(values[i], data, callback);
         if ( ! jsonLogic.truthy(current)) {
           return current;
         }
@@ -261,14 +265,14 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       return current; // Last
     } else if (op === "or") {// Return first truthy, or last
       for (i=0; i < values.length; i+=1) {
-        current = jsonLogic.apply(values[i], data);
+        current = jsonLogic.apply(values[i], data, callback);
         if ( jsonLogic.truthy(current) ) {
           return current;
         }
       }
       return current; // Last
     } else if (op === "filter") {
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = jsonLogic.apply(values[0], data, callback);
       scopedLogic = values[1];
 
       if ( ! Array.isArray(scopedData)) {
@@ -278,10 +282,10 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       // that return truthy when passed to the logic in the second argument.
       // For parity with JavaScript, reindex the returned array
       return scopedData.filter(function(datum) {
-        return jsonLogic.truthy( jsonLogic.apply(scopedLogic, datum));
+        return jsonLogic.truthy( jsonLogic.apply(scopedLogic, datum, callback));
       });
     } else if (op === "map") {
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = jsonLogic.apply(values[0], data, callback);
       scopedLogic = values[1];
 
       if ( ! Array.isArray(scopedData)) {
@@ -289,10 +293,10 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       }
 
       return scopedData.map(function(datum) {
-        return jsonLogic.apply(scopedLogic, datum);
+        return jsonLogic.apply(scopedLogic, datum, callback);
       });
     } else if (op === "reduce") {
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = jsonLogic.apply(values[0], data, callback);
       scopedLogic = values[1];
       initial = typeof values[2] !== "undefined" ? values[2] : null;
 
@@ -304,46 +308,47 @@ http://ricostacruz.com/cheatsheets/umdjs.html
         function(accumulator, current) {
           return jsonLogic.apply(
             scopedLogic,
-            {current: current, accumulator: accumulator}
+            {current: current, accumulator: accumulator},
+            callback
           );
         },
         initial
       );
     } else if (op === "all") {
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = jsonLogic.apply(values[0], data, callback);
       scopedLogic = values[1];
       // All of an empty set is false. Note, some and none have correct fallback after the for loop
       if ( ! Array.isArray(scopedData) || ! scopedData.length) {
         return false;
       }
       for (i=0; i < scopedData.length; i+=1) {
-        if ( ! jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i]) )) {
+        if ( ! jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i], callback) )) {
           return false; // First falsy, short circuit
         }
       }
       return true; // All were truthy
     } else if (op === "none") {
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = jsonLogic.apply(values[0], data, callback);
       scopedLogic = values[1];
 
       if ( ! Array.isArray(scopedData) || ! scopedData.length) {
         return true;
       }
       for (i=0; i < scopedData.length; i+=1) {
-        if ( jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i]) )) {
+        if ( jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i], callback) )) {
           return false; // First truthy, short circuit
         }
       }
       return true; // None were truthy
     } else if (op === "some") {
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = jsonLogic.apply(values[0], data, callback);
       scopedLogic = values[1];
 
       if ( ! Array.isArray(scopedData) || ! scopedData.length) {
         return false;
       }
       for (i=0; i < scopedData.length; i+=1) {
-        if ( jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i]) )) {
+        if ( jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i], callback) )) {
           return true; // First truthy, short circuit
         }
       }
@@ -352,7 +357,7 @@ http://ricostacruz.com/cheatsheets/umdjs.html
 
     // Everyone else gets immediate depth-first recursion
     values = values.map(function(val) {
-      return jsonLogic.apply(val, data);
+      return jsonLogic.apply(val, data, callback);
     });
 
 
